@@ -16,6 +16,8 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.JdkLoggerFactory;
 
 public class NettyClient {
     private NettyConfig mNettyConfig;
@@ -48,6 +50,7 @@ public class NettyClient {
     private void connect() {
         try {
             if (mBootstrap == null) {
+                InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE);
                 mBootstrap = new Bootstrap()
                         .channel(NioSocketChannel.class)
                         .group(new NioEventLoopGroup())
@@ -142,7 +145,7 @@ public class NettyClient {
                         }
                     }
                 }
-            }, 2000L, 5000L);
+            }, 0L, 5000L);
         } catch (Exception e) {
             e.printStackTrace();
         }
