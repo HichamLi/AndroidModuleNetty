@@ -6,8 +6,7 @@ public class NettyConfig {
     private String mHost;
     private int mPort;
     private int mConnectTimeOut;
-    private int mHeartInterval;
-    private int mCheckInterval;
+    private long mHeartInterval;
     private String mHeartData;
     private INettyCallback mCallback;
 
@@ -16,7 +15,6 @@ public class NettyConfig {
         mPort = builder.mPort;
         mConnectTimeOut = builder.mConnectTimeOut;
         mHeartInterval = builder.mHeartInterval;
-        mCheckInterval = builder.mCheckInterval;
         mHeartData = builder.mHeartData;
         mCallback = builder.mCallback;
     }
@@ -33,12 +31,8 @@ public class NettyConfig {
         return mConnectTimeOut;
     }
 
-    public int getHeartInterval() {
+    public long getHeartInterval() {
         return mHeartInterval;
-    }
-
-    public int getCheckInterval() {
-        return mCheckInterval;
     }
 
     public String getHeartData() {
@@ -54,7 +48,6 @@ public class NettyConfig {
         int mPort;
         int mConnectTimeOut = 10;
         int mHeartInterval = 50;
-        int mCheckInterval = 15;
         String mHeartData = "H";
         INettyCallback mCallback;
 
@@ -78,10 +71,6 @@ public class NettyConfig {
             return this;
         }
 
-        public Builder setCheckInterval(int interval) {
-            mCheckInterval = interval;
-            return this;
-        }
 
         public Builder setHeartData(String data) {
             mHeartData = data;

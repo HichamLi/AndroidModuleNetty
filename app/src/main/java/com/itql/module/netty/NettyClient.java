@@ -22,37 +22,35 @@ public class NettyClient {
     private Channel mChannel;
     private Bootstrap mBootstrap;
     private Timer mCheckTimer;
-    private Timer mHeartTimer;
     private volatile boolean mConnecting;
+    private volatile long mNextHeartTime;
+    private NettyClientHandler mNettyClientHandler;
+    private ChannelFutureListener mSendListener;
 
-    private NettyClient() {
-        NettyConfig.Builder builder = new NettyConfig.Builder();
-        mNettyConfig = builder.setHost(BuildConfig.TCP_HOST).setPort(BuildConfig.TCP_PORT).create();
-    }
-
-    public static final class Holder {
-        private static final NettyClient INSTANCE = new NettyClient();
-    }
-
-    public static NettyClient getInstance() {
-        return Holder.INSTANCE;
-    }
-
-    public void setNettyConfig(NettyConfig config) {
+    public NettyClient(NettyConfig config) {
         mNettyConfig = config;
+        mNettyClientHandler = new NettyClientHandler(mNettyConfig.getCallback());
+        mSendListener = new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) {
+                if (future.isSuccess()) {
+                    mNextHeartTime = System.currentTimeMillis() + mNettyConfig.getHeartInterval();
+                    if (mNettyConfig.getCallback() != null)
+                        mNettyConfig.getCallback().onSendSuccess();
+                } else {
+                    if (mNettyConfig.getCallback() != null) mNettyConfig.getCallback().onSendFail();
+                }
+            }
+        };
     }
 
     private void connect() {
         try {
-            if (isOnline()) {
-                System.out.println("已经在线");
-                return;
-            }
             if (mBootstrap == null) {
                 mBootstrap = new Bootstrap()
                         .channel(NioSocketChannel.class)
                         .group(new NioEventLoopGroup())
-                        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, mNettyConfig.getConnectTimeOut() * 1000)
+                        .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, mNettyConfig.getConnectTimeOut())
                         .handler(new ChannelInitializer<SocketChannel>() {
                             @Override
                             protected void initChannel(SocketChannel socketChannel) {
@@ -63,20 +61,23 @@ public class NettyClient {
                                 //字符串编码器
                                 pipeline.addLast(new StringEncoder());
                                 //处理类
-                                pipeline.addLast(new NettyClientHandler(mNettyConfig.getCallback()));
+                                pipeline.addLast(mNettyClientHandler);
                             }
                         });
+            }
+            if (isOnline()) {
+                System.out.println("已经在线");
+                return;
             }
             if (mConnecting) {
                 System.out.println("正在重连，跳过");
                 return;
             }
-            System.out.println("重连");
+            close();
             mConnecting = true;
             mBootstrap.connect(new InetSocketAddress(mNettyConfig.getHost(), mNettyConfig.getPort())).addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) {
-                    System.out.println("重连操作结束");
                     mConnecting = false;
                     mChannel = future.channel();
                     System.out.println(future.isSuccess() ? "重连成功" : "重连失败");
@@ -101,20 +102,20 @@ public class NettyClient {
 
     private void close() {
         try {
+            closeChannel();
             if (mCheckTimer != null) {
                 mCheckTimer.cancel();
                 mCheckTimer = null;
             }
-            if (mHeartTimer != null) {
-                mHeartTimer.cancel();
-                mHeartTimer = null;
-            }
-            if (mChannel != null) {
-                mChannel.close();
-                mChannel = null;
-            }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private void closeChannel() {
+        if (mChannel != null) {
+            mChannel.close();
+            mChannel = null;
         }
     }
 
@@ -129,21 +130,17 @@ public class NettyClient {
             mCheckTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
-                    if (!isOnline() && !mConnecting) {
-                        connect();
-                    }
-                }
-            }, 2000L, mNettyConfig.getCheckInterval());
-
-            mHeartTimer = new Timer();
-            mHeartTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
                     if (isOnline()) {
-                        sendHeart();
+                        if (System.currentTimeMillis() >= mNextHeartTime) {
+                            sendHeart();
+                        }
+                    } else {
+                        if (!mConnecting) {
+                            connect();
+                        }
                     }
                 }
-            }, 2000L, mNettyConfig.getHeartInterval());
+            }, 2000L, 5000L);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -152,7 +149,7 @@ public class NettyClient {
     public void sendData(String s) {
         try {
             if (isOnline()) {
-                mChannel.writeAndFlush(s);
+                mChannel.writeAndFlush(s).addListener(mSendListener);
             }
         } catch (Exception e) {
             e.printStackTrace();
