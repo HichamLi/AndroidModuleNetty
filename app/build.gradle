@@ -24,19 +24,11 @@ android {
         debug {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-
-            buildConfigField("String", "TCP_HOST", "\"192.168.1.130\"")
-            buildConfigField("int", "TCP_PORT", "8008")
-            buildConfigField("int", "HEART_TIME", "50")
         }
 
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-
-            buildConfigField("String", "TCP_HOST", "\"192.168.1.130\"")
-            buildConfigField("int", "TCP_PORT", "8008")
-            buildConfigField("int", "HEART_TIME", "50")
         }
     }
 
