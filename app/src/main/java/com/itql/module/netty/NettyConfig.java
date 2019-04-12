@@ -44,30 +44,33 @@ public class NettyConfig {
     }
 
     public static class Builder {
-        String mHost;
-        int mPort;
-        int mConnectTimeOut = 10;
-        int mHeartInterval = 50;
-        String mHeartData = "H";
-        INettyCallback mCallback;
+        private String mHost;
+        private int mPort;
+        private int mConnectTimeOut = 10000;
+        private long mHeartInterval = 30000L;
+        private String mHeartData = "H";
+        private INettyCallback mCallback;
 
-        public Builder setHost(String host) {
+        public Builder(String host, int port) {
             mHost = host;
-            return this;
-        }
-
-        public Builder setPort(int port) {
             mPort = port;
-            return this;
         }
 
+        /**
+         * @param timeOut 单位毫秒，最小是5000（5秒）
+         * @return Builder
+         */
         public Builder setConnectTimeOut(int timeOut) {
-            mConnectTimeOut = timeOut;
+            mConnectTimeOut = Math.max(timeOut, 5000);
             return this;
         }
 
-        public Builder setHeartInterval(int interval) {
-            mHeartInterval = interval;
+        /**
+         * @param interval 单位毫秒，最小是5000（5秒）
+         * @return Builder
+         */
+        public Builder setHeartInterval(long interval) {
+            mHeartInterval = Math.max(interval, 5000L);
             return this;
         }
 
@@ -82,10 +85,8 @@ public class NettyConfig {
             return this;
         }
 
-        public NettyConfig create() {
+        public NettyConfig build() {
             return new NettyConfig(this);
         }
     }
-
-
 }

@@ -24,12 +24,13 @@ public class NettyClient {
     private Timer mCheckTimer;
     private volatile boolean mConnecting;
     private volatile long mNextHeartTime;
-    private NettyClientHandler mNettyClientHandler;
+    private volatile long mNextConnectTime;
     private ChannelFutureListener mSendListener;
+    private static final int[] mConnectInterval = {10000, 10000, 10000, 30000, 30000, 30000, 60000, 60000, 120000, 120000, 180000, 180000, 300000, 300000};
+    private int mConnectCount = -1;
 
     public NettyClient(NettyConfig config) {
         mNettyConfig = config;
-        mNettyClientHandler = new NettyClientHandler(mNettyConfig.getCallback());
         mSendListener = new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) {
@@ -61,7 +62,7 @@ public class NettyClient {
                                 //字符串编码器
                                 pipeline.addLast(new StringEncoder());
                                 //处理类
-                                pipeline.addLast(mNettyClientHandler);
+                                pipeline.addLast(new NettyClientHandler(mNettyConfig.getCallback()));
                             }
                         });
             }
@@ -73,14 +74,22 @@ public class NettyClient {
                 System.out.println("正在重连，跳过");
                 return;
             }
-            close();
             mConnecting = true;
             mBootstrap.connect(new InetSocketAddress(mNettyConfig.getHost(), mNettyConfig.getPort())).addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) {
                     mConnecting = false;
                     mChannel = future.channel();
-                    System.out.println(future.isSuccess() ? "重连成功" : "重连失败");
+                    if (future.isSuccess()) {
+                        mConnectCount = 0;
+                        mNextConnectTime = 0;
+                    } else {
+                        mConnectCount++;
+                        if (mConnectCount >= mConnectInterval.length) {
+                            mConnectCount = 0;
+                        }
+                        mNextConnectTime = System.currentTimeMillis() + mConnectInterval[mConnectCount];
+                    }
                 }
             }).sync();
         } catch (Exception e) {
@@ -102,7 +111,10 @@ public class NettyClient {
 
     private void close() {
         try {
-            closeChannel();
+            if (mChannel != null) {
+                mChannel.close();
+                mChannel = null;
+            }
             if (mCheckTimer != null) {
                 mCheckTimer.cancel();
                 mCheckTimer = null;
@@ -112,16 +124,6 @@ public class NettyClient {
         }
     }
 
-    private void closeChannel() {
-        if (mChannel != null) {
-            mChannel.close();
-            mChannel = null;
-        }
-    }
-
-    private void sendHeart() {
-        sendData(mNettyConfig.getHeartData());
-    }
 
     public void start() {
         try {
@@ -135,7 +137,7 @@ public class NettyClient {
                             sendHeart();
                         }
                     } else {
-                        if (!mConnecting) {
+                        if (!mConnecting && System.currentTimeMillis() >= mNextConnectTime) {
                             connect();
                         }
                     }
@@ -150,6 +152,19 @@ public class NettyClient {
         try {
             if (isOnline()) {
                 mChannel.writeAndFlush(s).addListener(mSendListener);
+            } else {
+                if (mNettyConfig.getCallback() != null) mNettyConfig.getCallback().onSendFail();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void sendHeart() {
+        try {
+            mNextHeartTime = System.currentTimeMillis() + mNettyConfig.getHeartInterval();
+            if (isOnline()) {
+                mChannel.writeAndFlush(mNettyConfig.getHeartData());
             }
         } catch (Exception e) {
             e.printStackTrace();
