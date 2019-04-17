@@ -28,7 +28,7 @@ public class NettyClient {
     private volatile long mNextHeartTime;
     private volatile long mNextConnectTime;
     private ChannelFutureListener mSendListener;
-    private static final int[] mConnectInterval = {10000, 10000, 10000, 30000, 30000, 30000, 60000, 60000, 120000, 120000, 180000, 180000, 300000, 300000};
+    private static final int[] mConnectInterval = {10000, 10000, 10000, 30000, 30000, 30000};
     private int mConnectCount = -1;
 
     public NettyClient(NettyConfig config) {
