@@ -69,14 +69,7 @@ public class NettyClient {
                             }
                         });
             }
-            if (isOnline()) {
-                System.out.println("已经在线");
-                return;
-            }
-            if (mConnecting) {
-                System.out.println("正在重连，跳过");
-                return;
-            }
+            if (isOnline() || mConnecting) return;
             mConnecting = true;
             mBootstrap.connect(new InetSocketAddress(mNettyConfig.getHost(), mNettyConfig.getPort())).addListener(new ChannelFutureListener() {
                 @Override
